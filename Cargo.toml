@@ -1,0 +1,21 @@
+[workspace]
+members = [
+	"tests/world",
+]
+
+[package]
+name = "off-side"
+version = "0.1.0"
+authors = ["chankyin <chankyin1970@gmail.com>"]
+edition = "2018"
+homepage = "https://github.com/chankyin/off-side.rs"
+repository = "https://github.com/chankyin/off-side.rs.git"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+indent-stack = "0.1"
+proc-macro2 = {version = "0.4", features = ["proc-macro", "span-locations"]}
+quote = "0.6"
+syn = "0.15"
