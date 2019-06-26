@@ -4,7 +4,7 @@
 | :---: | :----: |
 | Travis-CI | [![](https://travis-ci.com/chankyin/off-side.rs.svg?branch=master)](https://travis-ci.com/chankyin/off-side.rs) |
 
-Implements a Rust syntax variant with off-side rule, just like in Python.
+Use off-side syntax (indent instead of braces, like in Python) to write Rust!
 
 Disclaimer: implementing a different standard of the language is apparently not a good idea.
 This project is just a proof of concept for fun.

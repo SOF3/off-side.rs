@@ -20,6 +20,7 @@ edition = "2018"
 homepage = "https://github.com/chankyin/off-side.rs"
 repository = "https://github.com/chankyin/off-side.rs.git"
 license = "Apache-2.0"
+description = "Use off-side syntax (indent instead of braces, like in Python) to write Rust!"
 
 [lib]
 proc-macro = true
