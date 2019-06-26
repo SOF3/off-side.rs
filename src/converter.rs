@@ -23,7 +23,7 @@ pub struct Converter {
     output: Vec<FlatToken>,
     state: ParseState,
     indent_stack: IndentStack,
-    close_stack: Vec<(Delimiter, bool)>,
+    close_stack: Vec<bool>,
     cursor: LineColumn,
 }
 
@@ -131,16 +131,16 @@ impl Converter {
 
     fn read_indent(&mut self, delta: isize) -> syn::Result<()> {
         if delta == 1 {
-            let delim = match self.state {
+            let (delim, semi) = match self.state {
                 ParseState::Colon => (Delimiter::Brace, false),
                 ParseState::ColonSemi => (Delimiter::Brace, true),
-                ParseState::Read => (Delimiter::None,false),
+                ParseState::Read => (Delimiter::None, false),
             };
-            self.output.push(FlatToken::OpenDelim(delim.0));
-            self.close_stack.push(delim);
+            self.output.push(FlatToken::OpenDelim(delim));
+            self.close_stack.push(semi);
         } else if delta < 0 {
             for _ in 0..-delta {
-                let (delim, semi) = self.close_stack.pop().expect("Unexpected dedent");
+                let semi = self.close_stack.pop().expect("Unexpected dedent");
                 self.output.push(FlatToken::CloseDelim(semi));
             }
         }

@@ -14,7 +14,7 @@
 
 [package]
 name = "off-side"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["chankyin <chankyin1970@gmail.com>"]
 edition = "2018"
 homepage = "https://github.com/chankyin/off-side.rs"
