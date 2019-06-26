@@ -4,21 +4,22 @@ use indent_stack::IndentStack;
 use proc_macro2::{Delimiter, Group, LineColumn, Punct, Spacing, Span, TokenStream, TokenTree};
 use proc_macro2::token_stream::IntoIter;
 
+#[derive(Debug)]
 pub struct Converter {
     output: Vec<FlatToken>,
     state: ParseState,
     indent_stack: IndentStack,
-    close_stack: Vec<bool>,
+    close_stack: Vec<(Delimiter, bool)>,
     cursor: LineColumn,
 }
 
 impl Default for Converter {
     fn default() -> Self {
         Self {
-            output: Default::default(),
-            state: Default::default(),
-            indent_stack: Default::default(),
-            close_stack: Default::default(),
+            output: Vec::new(),
+            state: ParseState::default(),
+            indent_stack: IndentStack::default_inconsistent_indents(),
+            close_stack: Vec::new(),
             cursor: LineColumn { line: 0, column: 0 },
         }
     }
@@ -34,8 +35,6 @@ impl Converter {
 
     fn read_token(&mut self, token: TokenTree) -> syn::Result<()> {
         let span = token.span();
-        println!("Reading token {}", token);
-        dbg!(span.start());
         self.read_space(span, span.start())?;
 
         let mut consumed = false;
@@ -55,19 +54,12 @@ impl Converter {
                         consumed = true;
                     }
                 }
-                if !consumed {
-                    self.push(TokenTree::Punct(Punct::new(':', Spacing::Joint)));
-                    self.state = ParseState::Read;
-                }
             }
-            ParseState::ColonSemi => {
-                self.state = ParseState::Read;
-                self.push(TokenTree::Punct(Punct::new(':', Spacing::Joint)));
-                self.push(TokenTree::Punct(Punct::new(';', Spacing::Joint)));
-            }
+            ParseState::ColonSemi => {}
         }
 
         if !consumed {
+            self.reset_state();
             match token {
                 TokenTree::Ident(_) | TokenTree::Literal(_) | TokenTree::Punct(_) => {
                     self.push(token);
@@ -91,32 +83,50 @@ impl Converter {
     }
 
     fn read_space(&mut self, span: Span, until: LineColumn) -> syn::Result<()> {
-        println!("White space from {}:{} to {}:{}", self.cursor.line, self.cursor.column, until.line, until.column);
-
-        if self.state != ParseState::Read && until.line > self.cursor.line {
+        if self.cursor == until {
+            return Ok(());
+        }
+        if until.line > self.cursor.line {
             self.cursor.line = until.line;
             let indents = until.column;
             let delta = self.indent_stack.accept(" ".repeat(indents).as_str())
                 .map_err(|err| syn::Error::new(
                     span, format!("{} at {}:{}", err, until.line, until.column)))?;
             self.read_indent(delta)?;
+            self.state = ParseState::Read;
+        } else {
+            self.reset_state();
         }
-        self.state = ParseState::Read;
         self.cursor = until;
         Ok(())
     }
 
+    fn reset_state(&mut self) {
+        match self.state {
+            ParseState::Colon => {
+                self.push(TokenTree::Punct(Punct::new(':', Spacing::Joint)));
+            }
+            ParseState::ColonSemi => {
+                self.push(TokenTree::Punct(Punct::new(':', Spacing::Joint)));
+                self.push(TokenTree::Punct(Punct::new(';', Spacing::Joint)));
+            }
+            _ => {}
+        }
+        self.state = ParseState::Read;
+    }
+
     fn read_indent(&mut self, delta: isize) -> syn::Result<()> {
         if delta == 1 {
-            self.output.push(FlatToken::OpenDelim(Delimiter::Brace));
-            self.close_stack.push(match self.state {
-                ParseState::Colon => false,
-                ParseState::ColonSemi => true,
-                _ => unreachable!(),
-            }.into())
+            let delim = match self.state {
+                ParseState::Colon => (Delimiter::Brace, false),
+                ParseState::ColonSemi => (Delimiter::Brace, true),
+                ParseState::Read => (Delimiter::None,false),
+            };
+            self.output.push(FlatToken::OpenDelim(delim.0));
+            self.close_stack.push(delim);
         } else if delta < 0 {
             for _ in 0..-delta {
-                let semi = self.close_stack.pop().expect("Unexpected dedent");
+                let (delim, semi) = self.close_stack.pop().expect("Unexpected dedent");
                 self.output.push(FlatToken::CloseDelim(semi));
             }
         }
@@ -158,7 +168,7 @@ fn build_tree(flat: &mut std::vec::IntoIter<FlatToken>, inner: bool) -> (Vec<Tok
     (ret, false)
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum ParseState {
     Read,
     Colon,
@@ -167,6 +177,7 @@ enum ParseState {
 
 impl Default for ParseState { fn default() -> Self { ParseState::Read } }
 
+#[derive(Debug)]
 enum FlatToken {
     Tree(TokenTree),
     OpenDelim(Delimiter),

@@ -1,8 +1,0 @@
-[package]
-name = "off-side_world"
-version = "0.1.0"
-authors = ["chankyin <chankyin1970@gmail.com>"]
-edition = "2018"
-
-[dependencies]
-off-side = {path = "../.."}
